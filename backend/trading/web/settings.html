@@ -1,0 +1,396 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>设置中心</title>
+  <style>
+    :root {
+      --bg: #091426;
+      --panel: #11203a;
+      --panel2: #172a49;
+      --line: #2b4466;
+      --text: #dce9ff;
+      --muted: #9fb3d0;
+      --ok: #2ecc71;
+      --down: #ff5f7a;
+      --accent: #56a3ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 14px;
+      color: var(--text);
+      font-family: "Segoe UI", "PingFang SC", sans-serif;
+      background: radial-gradient(circle at right top, #223a62, var(--bg) 58%);
+    }
+    .topbar {
+      max-width: 1440px;
+      margin: 0 auto 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand { font-size: 32px; font-weight: 800; }
+
+    .layout {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 12px;
+      min-height: 620px;
+    }
+
+    .menu {
+      background: linear-gradient(170deg, var(--panel), var(--panel2));
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .menu-title {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .menu-item {
+      border: 1px solid #3d5a80;
+      background: #0f1a2d;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .menu-item.active {
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px rgba(86, 163, 255, 0.35);
+      background: #132646;
+    }
+
+    .content {
+      background: linear-gradient(170deg, var(--panel), var(--panel2));
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .title { margin: 0 0 8px; font-size: 26px; }
+    .sub-title { margin: 12px 0 8px; font-size: 20px; }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    input, select, button, textarea {
+      border: 1px solid #3d5a80;
+      background: #0f1a2d;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 14px;
+    }
+    textarea { width: 100%; min-height: 96px; }
+    button { cursor: pointer; }
+    .ok { color: var(--ok); }
+    .down { color: var(--down); }
+    .muted { color: var(--muted); font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 6px 4px; }
+    .list-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: auto;
+      max-height: 420px;
+    }
+
+    @media (max-width: 980px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .menu {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      .menu-title { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">设置中心</div>
+    <button onclick="goBackPage()">返回上一页</button>
+  </div>
+
+  <div class="layout">
+    <aside class="menu">
+      <div class="menu-title">设置项目</div>
+      <button id="menuExchange" class="menu-item active" onclick="switchPanel('exchange')">交易所设置</button>
+      <button id="menuStrategy" class="menu-item" onclick="switchPanel('strategy')">策略管理</button>
+    </aside>
+
+    <main class="content">
+      <section id="panelExchange" class="panel active">
+        <h2 class="title">交易所设置</h2>
+        <div class="row"><label>交易所</label><select id="exchangeName"><option value="binance">binance</option></select></div>
+        <div class="row"><label>默认模式</label><select id="tradeMode"><option value="paper">paper(模拟)</option><option value="live">live(实盘)</option></select></div>
+        <div class="row"><label>测试网</label><select id="useTestnet"><option value="false">false</option><option value="true">true</option></select></div>
+        <div class="row"><label>实盘确认</label><select id="liveConfirm"><option value="false">false</option><option value="true">true</option></select></div>
+        <div class="row"><label>API Key</label><input id="apiKey" placeholder="输入 Binance API Key" /></div>
+        <div class="row"><label>API Secret</label><input id="apiSecret" type="password" placeholder="输入 Binance API Secret" /></div>
+        <div class="row">
+          <button onclick="testSettings()">测试API连接</button>
+          <button onclick="saveSettings()">保存设置</button>
+        </div>
+        <div id="settingsStatus" class="muted">设置状态: -</div>
+      </section>
+
+      <section id="panelStrategy" class="panel">
+        <h2 class="title">策略管理</h2>
+        <div class="row">
+          <label>策略名称</label>
+          <input id="profileName" placeholder="例如: BTC短线EMA" style="width:220px;" />
+        </div>
+        <div class="row">
+          <label>策略类型</label>
+          <select id="profileStrategyName">
+            <option value="ema_cross">ema_cross</option>
+            <option value="bollinger">bollinger</option>
+            <option value="rsi">rsi</option>
+            <option value="grid">grid</option>
+            <option value="hf_scalp">hf_scalp</option>
+            <option value="smart_adaptive">smart_adaptive</option>
+          </select>
+          <label>启用</label>
+          <select id="profileEnabled"><option value="true">true</option><option value="false">false</option></select>
+        </div>
+        <div class="row"><label>参数(JSON)</label></div>
+        <textarea id="profileParams">{}</textarea>
+        <div class="row">
+          <button onclick="createProfile()">新建策略</button>
+          <button onclick="updateProfile()">更新选中策略</button>
+          <button onclick="clearEditor()">清空编辑器</button>
+        </div>
+        <div id="profileStatus" class="muted">策略状态: -</div>
+
+        <h3 class="sub-title">策略列表</h3>
+        <div class="list-panel">
+          <table>
+            <thead><tr><th>名称</th><th>类型</th><th>启用</th><th>更新时间</th><th>操作</th></tr></thead>
+            <tbody id="profilesBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    let selectedProfileId = null;
+
+    function goBackPage() {
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        location.href = "/";
+      }
+    }
+
+    function switchPanel(name) {
+      const exchangeActive = name === "exchange";
+      document.getElementById("menuExchange").classList.toggle("active", exchangeActive);
+      document.getElementById("menuStrategy").classList.toggle("active", !exchangeActive);
+      document.getElementById("panelExchange").classList.toggle("active", exchangeActive);
+      document.getElementById("panelStrategy").classList.toggle("active", !exchangeActive);
+    }
+
+    function api(path, method = "GET", body) {
+      return fetch(path, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined
+      }).then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      });
+    }
+
+    function parseJson(text) {
+      return JSON.parse((text || "{}").trim() || "{}");
+    }
+
+    function clearEditor() {
+      selectedProfileId = null;
+      document.getElementById("profileName").value = "";
+      document.getElementById("profileStrategyName").value = "ema_cross";
+      document.getElementById("profileEnabled").value = "true";
+      document.getElementById("profileParams").value = "{}";
+    }
+
+    function fillEditor(p) {
+      selectedProfileId = p.id;
+      document.getElementById("profileName").value = p.name || "";
+      document.getElementById("profileStrategyName").value = p.strategy_name || "ema_cross";
+      document.getElementById("profileEnabled").value = String(!!p.enabled);
+      document.getElementById("profileParams").value = JSON.stringify(p.params || {}, null, 2);
+    }
+
+    async function loadProfiles() {
+      try {
+        const res = await api("/api/strategy-profiles");
+        const tbody = document.getElementById("profilesBody");
+        tbody.innerHTML = "";
+        for (const p of (res.profiles || [])) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${p.name || "-"}</td>
+            <td>${p.strategy_name || "-"}</td>
+            <td class="${p.enabled ? "ok" : "down"}">${p.enabled ? "启用" : "停用"}</td>
+            <td>${p.updated_at || "-"}</td>
+            <td>
+              <button onclick="selectProfile('${p.id}')">编辑</button>
+              <button onclick="toggleProfile('${p.id}', ${p.enabled ? "false" : "true"})">${p.enabled ? "停用" : "启用"}</button>
+              <button onclick="deleteProfile('${p.id}')">删除</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        }
+        window._profiles = res.profiles || [];
+      } catch (e) {
+        document.getElementById("profileStatus").textContent = `策略状态: ${e.message}`;
+      }
+    }
+
+    function selectProfile(id) {
+      const p = (window._profiles || []).find((x) => x.id === id);
+      if (!p) return;
+      fillEditor(p);
+      switchPanel("strategy");
+      document.getElementById("profileStatus").textContent = `策略状态: 已选中 ${p.name}`;
+    }
+
+    async function createProfile() {
+      try {
+        const payload = {
+          name: document.getElementById("profileName").value.trim(),
+          strategy_name: document.getElementById("profileStrategyName").value,
+          enabled: document.getElementById("profileEnabled").value === "true",
+          params: parseJson(document.getElementById("profileParams").value)
+        };
+        await api("/api/strategy-profiles", "POST", payload);
+        document.getElementById("profileStatus").textContent = "策略状态: 新建成功";
+        await loadProfiles();
+      } catch (e) {
+        document.getElementById("profileStatus").textContent = `策略状态: ${e.message}`;
+      }
+    }
+
+    async function updateProfile() {
+      if (!selectedProfileId) {
+        document.getElementById("profileStatus").textContent = "策略状态: 请先在列表点编辑";
+        return;
+      }
+      try {
+        const payload = {
+          name: document.getElementById("profileName").value.trim(),
+          strategy_name: document.getElementById("profileStrategyName").value,
+          enabled: document.getElementById("profileEnabled").value === "true",
+          params: parseJson(document.getElementById("profileParams").value)
+        };
+        await api(`/api/strategy-profiles/${selectedProfileId}`, "PUT", payload);
+        document.getElementById("profileStatus").textContent = "策略状态: 更新成功";
+        await loadProfiles();
+      } catch (e) {
+        document.getElementById("profileStatus").textContent = `策略状态: ${e.message}`;
+      }
+    }
+
+    async function toggleProfile(id, enable) {
+      try {
+        await api(`/api/strategy-profiles/${id}/${enable ? "enable" : "disable"}`, "POST");
+        document.getElementById("profileStatus").textContent = `策略状态: ${enable ? "启用" : "停用"}成功`;
+        await loadProfiles();
+      } catch (e) {
+        document.getElementById("profileStatus").textContent = `策略状态: ${e.message}`;
+      }
+    }
+
+    async function deleteProfile(id) {
+      try {
+        await api(`/api/strategy-profiles/${id}`, "DELETE");
+        if (selectedProfileId === id) clearEditor();
+        document.getElementById("profileStatus").textContent = "策略状态: 删除成功";
+        await loadProfiles();
+      } catch (e) {
+        document.getElementById("profileStatus").textContent = `策略状态: ${e.message}`;
+      }
+    }
+
+    async function loadSettings() {
+      try {
+        const s = await api("/api/settings");
+        document.getElementById("exchangeName").value = s.exchange_name || "binance";
+        document.getElementById("tradeMode").value = s.trade_mode || "paper";
+        document.getElementById("useTestnet").value = String(!!s.use_binance_testnet);
+        document.getElementById("liveConfirm").value = String(!!s.live_confirm);
+        document.getElementById("settingsStatus").textContent = `设置状态: 已加载，API Key=${s.binance_api_key_masked || "(空)"}`;
+      } catch (e) {
+        document.getElementById("settingsStatus").textContent = `设置状态: ${e.message}`;
+      }
+    }
+
+    async function saveSettings() {
+      try {
+        const payload = {
+          exchange_name: document.getElementById("exchangeName").value,
+          trade_mode: document.getElementById("tradeMode").value,
+          use_binance_testnet: document.getElementById("useTestnet").value === "true",
+          live_confirm: document.getElementById("liveConfirm").value === "true",
+          binance_api_key: document.getElementById("apiKey").value.trim(),
+          binance_api_secret: document.getElementById("apiSecret").value.trim(),
+          save_to_env: true
+        };
+        const res = await api("/api/settings", "POST", payload);
+        document.getElementById("settingsStatus").textContent = `设置状态: 保存成功，默认模式=${res.trade_mode}`;
+      } catch (e) {
+        document.getElementById("settingsStatus").textContent = `设置状态: ${e.message}`;
+      }
+    }
+
+    async function testSettings() {
+      try {
+        const payload = {
+          exchange_name: document.getElementById("exchangeName").value,
+          trade_mode: document.getElementById("tradeMode").value,
+          use_binance_testnet: document.getElementById("useTestnet").value === "true",
+          live_confirm: document.getElementById("liveConfirm").value === "true",
+          binance_api_key: document.getElementById("apiKey").value.trim(),
+          binance_api_secret: document.getElementById("apiSecret").value.trim(),
+          save_to_env: false
+        };
+        const res = await api("/api/settings/test", "POST", payload);
+        document.getElementById("settingsStatus").textContent = `设置状态: API连接成功，BTC=${res.last_price}，资产项=${res.asset_count}`;
+      } catch (e) {
+        document.getElementById("settingsStatus").textContent = `设置状态: API测试失败 ${e.message}`;
+      }
+    }
+
+    async function bootstrap() {
+      clearEditor();
+      switchPanel("exchange");
+      await loadSettings();
+      await loadProfiles();
+    }
+
+    bootstrap();
+  </script>
+</body>
+</html>

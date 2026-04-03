@@ -1,0 +1,2131 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>自动量化交易终端</title>
+  <style>
+    :root {
+      --bg: #091426;
+      --panel: #11203a;
+      --panel2: #172a49;
+      --line: #2b4466;
+      --text: #dce9ff;
+      --muted: #9fb3d0;
+      --ok: #2ecc71;
+      --down: #ff5f7a;
+      --ma9: #f4c542;
+      --ma25: #d14ef5;
+      --accent: #56a3ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 14px;
+      color: var(--text);
+      font-family: "Segoe UI", "PingFang SC", sans-serif;
+      background: radial-gradient(circle at right top, #223a62, var(--bg) 58%);
+    }
+    .topbar {
+      max-width: 1440px;
+      margin: 0 auto 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand { font-size: 34px; font-weight: 800; letter-spacing: 0.4px; }
+    .nav {
+      max-width: 1440px;
+      margin: 0 auto 10px;
+      display: flex;
+      gap: 8px;
+    }
+    .nav-item {
+      border: 1px solid #3d5a80;
+      background: #0f1a2d;
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 8px 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .nav-item.active {
+      border-color: var(--accent);
+      color: var(--text);
+      box-shadow: inset 0 0 0 1px rgba(86, 163, 255, 0.35);
+    }
+    .page { display: none; }
+    .page.active { display: block; }
+    .wrap {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 12px;
+    }
+    .card {
+      background: linear-gradient(170deg, var(--panel), var(--panel2));
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .title { margin: 0 0 8px; font-size: 28px; }
+    .sub-title { margin: 12px 0 8px; font-size: 25px; }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    input, select, button, textarea {
+      border: 1px solid #3d5a80;
+      background: #0f1a2d;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 14px;
+    }
+    input.invalid {
+      border-color: #ff5f7a !important;
+      box-shadow: 0 0 0 1px rgba(255, 95, 122, 0.35) inset;
+    }
+    .range-error {
+      color: #ff8fa1;
+      font-size: 12px;
+      margin-top: 6px;
+    }
+    textarea { width: 100%; min-height: 74px; }
+    button { cursor: pointer; }
+    .btn-start { border-color: #1f8a56; color: #a7f3d0; }
+    .btn-stop { border-color: #923148; color: #ffc3ce; }
+    .pill {
+      border: 1px solid #3d5a80;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+    }
+    .muted { color: var(--muted); font-size: 12px; }
+    .fav-wrap {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      max-height: 110px;
+      overflow: auto;
+    }
+    .fav {
+      border: 1px solid #3d5a80;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      background: #0f1c31;
+    }
+    #klineCanvas {
+      width: 100%;
+      height: 560px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0b1626;
+      display: block;
+      user-select: none;
+      cursor: grab;
+    }
+    #klineCanvas.dragging { cursor: grabbing; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 13px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 6px 4px; }
+    .ok { color: var(--ok); }
+    .down { color: var(--down); }
+
+    .mode-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .mode-tab {
+      border: 1px solid #3d5a80;
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+      cursor: pointer;
+      background: #0f1a2d;
+      color: var(--muted);
+      user-select: none;
+    }
+    .mode-tab.active {
+      border-color: var(--accent);
+      color: #dce9ff;
+      box-shadow: inset 0 0 0 1px rgba(86, 163, 255, 0.35);
+    }
+
+    .modal-mask {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 7, 17, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .hidden { display: none !important; }
+    .modal-card {
+      width: min(640px, calc(100vw - 24px));
+      max-height: calc(100vh - 24px);
+      overflow: auto;
+      background: linear-gradient(170deg, var(--panel), var(--panel2));
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .list-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: auto;
+      max-height: 180px;
+    }
+    .market-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .backtest-wrap {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 12px;
+    }
+    #equityCanvas {
+      width: 100%;
+      height: 260px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0b1626;
+      display: block;
+    }
+    @media (max-width: 980px) {
+      .wrap { grid-template-columns: 1fr; }
+      #klineCanvas { height: 400px; }
+      .market-stats { grid-template-columns: 1fr 1fr; }
+      .backtest-wrap { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">自动量化交易终端</div>
+    <button onclick="location.href='/settings'">设置</button>
+  </div>
+
+  <div class="nav">
+    <div id="navMarket" class="nav-item active" onclick="switchPage('market')">行情</div>
+    <div id="navTrade" class="nav-item" onclick="switchPage('trade')">交易</div>
+    <div id="navBacktest" class="nav-item" onclick="switchPage('backtest')">回测</div>
+  </div>
+
+  <div id="pageMarket" class="page active">
+    <div class="wrap" style="grid-template-columns: 1fr;">
+      <section class="card">
+        <h2 class="title">行情</h2>
+        <div class="row">
+          <label>交易对</label>
+          <select id="symbolSelect"></select>
+          <button onclick="addFavorite()">加入自选</button>
+          <button onclick="removeFavorite()">取消自选</button>
+          <label>周期</label>
+          <select id="timeframeSelect">
+            <option value="1s">1秒</option>
+            <option value="1m">1分钟</option>
+            <option value="3m">3分钟</option>
+            <option value="5m">5分钟</option>
+            <option value="10m">10分钟</option>
+            <option value="15m">15分钟</option>
+            <option value="30m">30分钟</option>
+            <option value="1h">1小时</option>
+            <option value="2h">2小时</option>
+            <option value="4h">4小时</option>
+            <option value="6h">6小时</option>
+            <option value="8h">8小时</option>
+            <option value="12h">12小时</option>
+            <option value="1d">1天</option>
+            <option value="3d">3天</option>
+            <option value="1w">1周</option>
+            <option value="1M">1月</option>
+          </select>
+        </div>
+        <canvas id="klineCanvas" width="1200" height="560"></canvas>
+        <div id="chartStatus" class="muted">图表状态: -</div>
+        <div class="muted">支持横轴时间/纵轴价格，拖动查看历史、滚轮缩放，默认自动实时刷新。</div>
+        <div class="market-stats">
+          <div class="stat">24h最高: <b id="mHigh">-</b></div>
+          <div class="stat">24h最低: <b id="mLow">-</b></div>
+          <div class="stat">24h涨跌: <b id="mChg">-</b></div>
+          <div class="stat">买一: <b id="mBid">-</b></div>
+          <div class="stat">卖一: <b id="mAsk">-</b></div>
+          <div class="stat">24h成交额: <b id="mVol">-</b></div>
+        </div>
+
+        <h3 class="sub-title">自选交易对</h3>
+        <div id="favoriteList" class="fav-wrap"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="pageTrade" class="page">
+  <div class="wrap">
+    <section class="card">
+      <h2 class="title">交易面板</h2>
+      <div class="row">
+        <label>当前交易对</label>
+        <select id="tradeSymbolSelect"></select>
+        <button onclick="syncTradeToMarket()">同步到行情页</button>
+        <label>当前周期</label>
+        <select id="tradeTimeframeSelect"></select>
+      </div>
+      <div class="muted">图表展示在“行情”页。交易页专注自动交易与风控。</div>
+      <div class="stats" style="margin-top:8px;">
+        <div class="stat">当前价格: <b id="tradeLastPrice">-</b></div>
+        <div class="stat">24h涨跌: <b id="tradeChg">-</b></div>
+        <div class="stat">24h最高: <b id="tradeHigh">-</b></div>
+        <div class="stat">24h最低: <b id="tradeLow">-</b></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="title">自动交易</h2>
+
+      <div class="mode-switch">
+        <div id="modeTabLive" class="mode-tab" onclick="switchTradeMode('live')">真实交易</div>
+        <div id="modeTabPaper" class="mode-tab" onclick="switchTradeMode('paper')">模拟交易</div>
+      </div>
+
+      <div class="row">
+        <label>策略(已启用)</label>
+        <select id="strategyName"></select>
+      </div>
+      <div class="row"><label>策略参数(JSON)</label></div>
+      <textarea id="strategyParams">{}</textarea>
+      <div class="row"><button onclick="applyStrategyTemplate()">加载默认参数</button></div>
+      <div class="row"><label>资金管理</label></div>
+      <div class="row">
+        <label>金额模式</label>
+        <select id="amountMode">
+          <option value="fixed">固定金额</option>
+          <option value="dynamic">动态风控金额</option>
+        </select>
+        <label>固定金额(USDT)</label>
+        <input id="fixedOrderUsdt" type="number" min="1" step="1" value="100" style="width:110px;" />
+        <label>单笔上限(USDT)</label>
+        <input id="maxOrderUsdt" type="number" min="1" step="1" value="300" style="width:110px;" />
+      </div>
+      <div class="row">
+        <label>单笔风险%(建议 0.25~1.00)</label>
+        <input id="riskPerTradePct" type="number" min="0.01" step="0.01" value="0.5" style="width:90px;" />
+        <label>止损%</label>
+        <input id="stopLossPct" type="number" min="0.1" step="0.1" value="2.0" style="width:90px;" />
+        <label>可用资金比例(0~1)</label>
+        <input id="tradableBalanceRatio" type="number" min="0.05" max="1" step="0.01" value="0.95" style="width:90px;" />
+        <span id="tradableBalanceRatioHint" class="muted">= 95%</span>
+      </div>
+      <div class="row">
+        <label>最多同时开单</label>
+        <input id="maxOpenTrades" type="number" min="1" step="1" value="5" style="width:90px;" />
+        <label>单币种最大敞口(USDT)</label>
+        <input id="maxSymbolExposureUsdt" type="number" min="1" step="1" value="800" style="width:130px;" />
+      </div>
+      <div class="row">
+        <label><input id="initialEntryOnStart" type="checkbox" /> 启动后允许首单市价开仓</label>
+      </div>
+      <div class="row">
+        <label>参数预设</label>
+        <button onclick="applyRiskPreset('conservative')">保守</button>
+        <button onclick="applyRiskPreset('balanced')">均衡</button>
+        <button onclick="applyRiskPreset('aggressive')">激进</button>
+      </div>
+      <div class="row">
+        <button class="btn-start" onclick="startEngine()">开始自动交易</button>
+        <button class="btn-stop" onclick="stopEngine()">停止当前交易对</button>
+      </div>
+      <div id="tradeParamError" class="range-error">参数校验: -</div>
+
+      <div class="row">
+        <span id="running" class="pill">状态: -</span>
+        <span id="signal" class="pill">信号: -</span>
+        <span id="mode" class="pill">模式: -</span>
+      </div>
+      <div class="stats">
+        <div class="stat">最新价: <b id="price">-</b></div>
+        <div class="stat">持仓数量: <b id="position">-</b></div>
+        <div class="stat">成交次数: <b id="trades">-</b></div>
+        <div class="stat">最近轮询: <b id="tick">-</b></div>
+      </div>
+      <div id="error" class="muted" style="margin-top:8px;">错误: -</div>
+      <div id="signalReason" class="muted" style="margin-top:6px;">信号解释: -</div>
+      <div id="signalMetrics" class="muted" style="margin-top:4px;">指标: -</div>
+
+      <h3 class="sub-title">正在自动交易（当前模式）</h3>
+      <div class="list-panel">
+        <table>
+          <thead>
+            <tr>
+              <th>交易对</th>
+              <th>买/卖次数</th>
+              <th>总成交</th>
+              <th>持仓金额(USDT)</th>
+              <th>盈亏(USDT)</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="activeBotsBody"></tbody>
+        </table>
+      </div>
+
+      <h3 class="sub-title">最近成交（当前模式）</h3>
+      <table>
+        <thead><tr><th>时间</th><th>交易对</th><th>方向</th><th>数量</th><th>价格</th><th>理由</th></tr></thead>
+        <tbody id="orders"></tbody>
+      </table>
+    </section>
+  </div>
+  </div>
+
+  <div id="pageBacktest" class="page">
+    <div class="backtest-wrap">
+      <section class="card">
+        <h2 class="title">回测参数</h2>
+        <div class="row">
+          <label>交易对</label><select id="btSymbol"></select>
+          <label>周期</label>
+          <select id="btTimeframe">
+            <option value="1s">1秒</option>
+            <option value="1m">1分钟</option>
+            <option value="3m">3分钟</option>
+            <option value="5m">5分钟</option>
+            <option value="10m">10分钟</option>
+            <option value="15m">15分钟</option>
+            <option value="30m">30分钟</option>
+            <option value="1h">1小时</option>
+            <option value="2h">2小时</option>
+            <option value="4h">4小时</option>
+            <option value="6h">6小时</option>
+            <option value="8h">8小时</option>
+            <option value="12h">12小时</option>
+            <option value="1d">1天</option>
+            <option value="3d">3天</option>
+            <option value="1w">1周</option>
+            <option value="1M">1月</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>策略</label><select id="btStrategy"></select>
+          <button onclick="applyBacktestTemplate()">加载默认参数</button>
+        </div>
+        <div class="row"><label>策略参数(JSON)</label></div>
+        <textarea id="btParams">{}</textarea>
+        <div class="row">
+          <label>回测范围</label>
+          <select id="btRangeDays" style="width:140px;">
+            <option value="0">按K线数量</option>
+            <option value="7">过去7天</option>
+            <option value="30" selected>过去30天</option>
+            <option value="90">过去90天</option>
+            <option value="-1">自定义起止日期</option>
+          </select>
+          <label id="btStartTimeLabel" style="display:none;">开始时间</label>
+          <input id="btStartTime" type="datetime-local" style="display:none;width:190px;" />
+          <label id="btEndTimeLabel" style="display:none;">结束时间</label>
+          <input id="btEndTime" type="datetime-local" style="display:none;width:190px;" />
+          <label>K线数量</label><input id="btLimit" type="number" min="100" max="5000" value="1200" style="width:120px;" />
+          <label>初始资金(USDT)</label><input id="btCapital" type="number" min="100" value="10000" style="width:120px;" />
+          <label>每笔资金(USDT)</label><input id="btOrderSize" type="number" min="10" value="100" style="width:120px;" />
+          <label>手续费率</label><input id="btFeeRate" type="number" min="0" step="0.0001" value="0.001" style="width:120px;" />
+        </div>
+        <div id="btRangeHint" class="muted">范围提示: -</div>
+        <div class="row"><label>回测资金管理（与交易同步）</label></div>
+        <div class="row">
+          <label>金额模式</label>
+          <select id="btAmountMode">
+            <option value="fixed">固定金额</option>
+            <option value="dynamic">动态风控金额</option>
+          </select>
+          <label>固定金额(USDT)</label><input id="btFixedOrderUsdt" type="number" min="1" step="1" value="100" style="width:110px;" />
+          <label>单笔上限(USDT)</label><input id="btMaxOrderUsdt" type="number" min="1" step="1" value="300" style="width:110px;" />
+        </div>
+        <div class="row">
+          <label>单笔风险%(建议 0.25~1.00)</label><input id="btRiskPerTradePct" type="number" min="0.01" step="0.01" value="0.5" style="width:90px;" />
+          <label>止损%</label><input id="btStopLossPct" type="number" min="0.1" step="0.1" value="2.0" style="width:90px;" />
+          <label>可用资金比例(0~1)</label><input id="btTradableBalanceRatio" type="number" min="0.05" max="1" step="0.01" value="0.95" style="width:90px;" />
+          <span id="btTradableBalanceRatioHint" class="muted">= 95%</span>
+        </div>
+        <div class="row">
+          <label>最多同时开单</label><input id="btMaxOpenTrades" type="number" min="1" step="1" value="5" style="width:90px;" />
+          <label>单币种最大敞口(USDT)</label><input id="btMaxSymbolExposureUsdt" type="number" min="1" step="1" value="800" style="width:130px;" />
+          <label><input id="btInitialEntryOnStart" type="checkbox" /> 启动后允许首单市价开仓</label>
+        </div>
+        <div class="row">
+          <button onclick="syncTradeSettingsToBacktest(true, true)">从交易页同步参数</button>
+        </div>
+        <div class="row">
+          <button class="btn-start" onclick="runBacktest()">开始回测</button>
+          <button onclick="optimizeBacktest()">参数寻优</button>
+          <label>候选上限</label><input id="btOptMaxCandidates" type="number" min="10" max="300" value="120" style="width:90px;" />
+          <label>榜单条数</label><input id="btOptTopK" type="number" min="3" max="30" value="10" style="width:80px;" />
+        </div>
+        <div id="btParamError" class="range-error">参数校验: -</div>
+        <div id="btStatus" class="muted">回测状态: -</div>
+        <div id="btOptStatus" class="muted">寻优状态: -</div>
+      </section>
+      <section class="card">
+        <h2 class="title">回测结果</h2>
+        <div class="stats">
+          <div class="stat">回测策略: <b id="btStrategyUsed">-</b></div>
+          <div class="stat">K线数: <b id="btCandles">-</b></div>
+          <div class="stat">交易次数: <b id="btTrades">-</b></div>
+          <div class="stat">胜率: <b id="btWinRate">-</b></div>
+          <div class="stat">总盈亏(USDT): <b id="btPnl">-</b></div>
+          <div class="stat">总收益率: <b id="btReturn">-</b></div>
+          <div class="stat">最大回撤: <b id="btDrawdown">-</b></div>
+          <div class="stat">期初资金: <b id="btInitEq">-</b></div>
+          <div class="stat">期末权益: <b id="btFinalEq">-</b></div>
+          <div class="stat">回测区间: <b id="btRangeInfo">-</b></div>
+          <div class="stat">平均单笔收益(USDT): <b id="btAvgTradePnl">-</b></div>
+          <div class="stat">每笔期望值(USDT): <b id="btExpectancy">-</b></div>
+          <div class="stat">盈亏比(均赢/均亏): <b id="btProfitLossRatio">-</b></div>
+          <div class="stat">总手续费(USDT): <b id="btTotalFees">-</b></div>
+          <div class="stat">手续费占成交额: <b id="btFeeRatio">-</b></div>
+        </div>
+        <h3 class="sub-title">价格走势（回测区间）</h3>
+        <canvas id="btPriceCanvas" width="900" height="220"></canvas>
+        <h3 class="sub-title">权益曲线</h3>
+        <canvas id="equityCanvas" width="900" height="260"></canvas>
+        <h3 class="sub-title">回测订单</h3>
+        <div class="list-panel" style="max-height:260px;">
+          <table>
+            <thead><tr><th>时间</th><th>方向</th><th>价格</th><th>数量</th><th>手续费</th><th>盈亏</th></tr></thead>
+            <tbody id="btOrders"></tbody>
+          </table>
+        </div>
+        <h3 class="sub-title">参数寻优排行</h3>
+        <div class="list-panel" style="max-height:280px;">
+          <table>
+            <thead><tr><th>#</th><th>收益率%</th><th>回撤%</th><th>胜率%</th><th>交易数</th><th>得分</th><th>操作</th></tr></thead>
+            <tbody id="btOptimizeRows"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const coreSymbols = ["BTC/USDT","ETH/USDT","BNB/USDT","SOL/USDT","XRP/USDT","DOGE/USDT","ADA/USDT","TRX/USDT","AVAX/USDT","LINK/USDT","LTC/USDT","DOT/USDT"];
+    const favoritesKey = "favorite_symbols";
+    const strategyTemplates = {
+      ema_cross: { fast: 9, slow: 21 },
+      bollinger: { window: 20, std_mult: 2.0 },
+      rsi: { period: 14, overbought: 70, oversold: 30 },
+      grid: { grid_pct: 0.01 },
+      hf_scalp: { lookback: 4, entry_bps: 3.0, exit_bps: 2.0 },
+      smart_adaptive: {
+        timeframe: "10m",
+        signal_kline_limit: 300,
+        fast: 12,
+        slow: 48,
+        trend_threshold_pct: 0.18,
+        trend_exit_threshold_pct: 0.05,
+        rsi_period: 14,
+        trend_pullback_rsi: 46,
+        trend_takeprofit_rsi: 69,
+        bb_window: 20,
+        trend_pullback_z: 0.35,
+        trend_takeprofit_z: 1.25,
+        range_entry_z: 1.15,
+        range_exit_z: 0.75,
+        range_buy_rsi: 43,
+        range_sell_rsi: 58,
+        vol_window: 20,
+        max_vol_pct: 2.8,
+        cooldown_bars: 2
+      }
+    };
+
+    let ws = null;
+    let bars = [];
+    let currentTradeMode = "paper";
+    let strategyProfiles = [];
+    const strategyProfilesById = {};
+    const modeOrderSizing = {
+      paper: {
+        amount_mode: "fixed",
+        fixed_order_usdt: 100,
+        max_order_usdt: 300,
+        risk_per_trade_pct: 0.5,
+        stop_loss_pct: 2.0,
+        tradable_balance_ratio: 0.95,
+        max_open_trades: 5,
+        max_symbol_exposure_usdt: 800,
+        initial_entry_on_start: false
+      },
+      live: {
+        amount_mode: "fixed",
+        fixed_order_usdt: 50,
+        max_order_usdt: 100,
+        risk_per_trade_pct: 0.25,
+        stop_loss_pct: 2.0,
+        tradable_balance_ratio: 0.90,
+        max_open_trades: 3,
+        max_symbol_exposure_usdt: 300,
+        initial_entry_on_start: false
+      }
+    };
+    const riskPresets = {
+      conservative: {
+        amount_mode: "fixed",
+        fixed_order_usdt: 50,
+        max_order_usdt: 100,
+        risk_per_trade_pct: 0.25,
+        stop_loss_pct: 1.5,
+        tradable_balance_ratio: 0.80,
+        max_open_trades: 2,
+        max_symbol_exposure_usdt: 200,
+        initial_entry_on_start: false
+      },
+      balanced: {
+        amount_mode: "dynamic",
+        fixed_order_usdt: 100,
+        max_order_usdt: 300,
+        risk_per_trade_pct: 0.5,
+        stop_loss_pct: 2.0,
+        tradable_balance_ratio: 0.90,
+        max_open_trades: 4,
+        max_symbol_exposure_usdt: 800,
+        initial_entry_on_start: false
+      },
+      aggressive: {
+        amount_mode: "dynamic",
+        fixed_order_usdt: 150,
+        max_order_usdt: 500,
+        risk_per_trade_pct: 1.0,
+        stop_loss_pct: 3.0,
+        tradable_balance_ratio: 0.98,
+        max_open_trades: 6,
+        max_symbol_exposure_usdt: 1500,
+        initial_entry_on_start: false
+      }
+    };
+    const validationRules = {
+      fixedOrderUsdt: { min: 1, max: 100000, label: "固定金额(USDT)" },
+      maxOrderUsdt: { min: 1, max: 200000, label: "单笔上限(USDT)" },
+      riskPerTradePct: { min: 0.01, max: 10, label: "单笔风险%(%)" },
+      stopLossPct: { min: 0.1, max: 50, label: "止损%" },
+      tradableBalanceRatio: { min: 0.05, max: 1, label: "可用资金比例(0~1)" },
+      maxOpenTrades: { min: 1, max: 50, label: "最多同时开单" },
+      maxSymbolExposureUsdt: { min: 1, max: 1000000, label: "单币种最大敞口(USDT)" },
+      btLimit: { min: 100, max: 5000, label: "K线数量" },
+      btCapital: { min: 100, max: 100000000, label: "初始资金(USDT)" },
+      btOrderSize: { min: 1, max: 100000, label: "每笔资金(USDT)" },
+      btFeeRate: { min: 0, max: 0.01, label: "手续费率" },
+      btFixedOrderUsdt: { min: 1, max: 100000, label: "回测固定金额(USDT)" },
+      btMaxOrderUsdt: { min: 1, max: 200000, label: "回测单笔上限(USDT)" },
+      btRiskPerTradePct: { min: 0.01, max: 10, label: "回测单笔风险%(%)" },
+      btStopLossPct: { min: 0.1, max: 50, label: "回测止损%" },
+      btTradableBalanceRatio: { min: 0.05, max: 1, label: "回测可用资金比例(0~1)" },
+      btMaxOpenTrades: { min: 1, max: 50, label: "回测最多同时开单" },
+      btMaxSymbolExposureUsdt: { min: 1, max: 1000000, label: "回测单币种最大敞口(USDT)" },
+      btOptMaxCandidates: { min: 10, max: 300, label: "候选上限" },
+      btOptTopK: { min: 3, max: 30, label: "榜单条数" },
+    };
+
+    let visibleBars = 120;
+    let offsetBars = 0;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartOffset = 0;
+    let hoverX = null;
+    let hoverY = null;
+    let currentPage = "market";
+    let lastEquityCurve = [];
+    let lastBacktestPriceCurve = [];
+    let lastOptimizeRows = [];
+    let activeBacktestJobId = "";
+    let activeOptimizeJobId = "";
+    let backtestPollTimer = null;
+    let optimizePollTimer = null;
+
+    function switchPage(page) {
+      currentPage = page;
+      sessionStorage.setItem("active_main_page", page);
+      document.getElementById("pageMarket").classList.toggle("active", page === "market");
+      document.getElementById("pageTrade").classList.toggle("active", page === "trade");
+      document.getElementById("pageBacktest").classList.toggle("active", page === "backtest");
+      document.getElementById("navMarket").classList.toggle("active", page === "market");
+      document.getElementById("navTrade").classList.toggle("active", page === "trade");
+      document.getElementById("navBacktest").classList.toggle("active", page === "backtest");
+    }
+
+    function switchTradeMode(mode) {
+      saveOrderSizingForCurrentMode();
+      currentTradeMode = mode;
+      document.getElementById("modeTabLive").classList.toggle("active", mode === "live");
+      document.getElementById("modeTabPaper").classList.toggle("active", mode === "paper");
+      document.getElementById("mode").textContent = `模式: ${mode}`;
+      loadOrderSizingForCurrentMode();
+      refreshState();
+    }
+
+    function readOrderSizingInputs() {
+      return {
+        amount_mode: document.getElementById("amountMode").value,
+        fixed_order_usdt: Number(document.getElementById("fixedOrderUsdt").value || 0),
+        max_order_usdt: Number(document.getElementById("maxOrderUsdt").value || 0),
+        risk_per_trade_pct: Number(document.getElementById("riskPerTradePct").value || 0),
+        stop_loss_pct: Number(document.getElementById("stopLossPct").value || 0),
+        tradable_balance_ratio: Number(document.getElementById("tradableBalanceRatio").value || 0),
+        max_open_trades: Number(document.getElementById("maxOpenTrades").value || 1),
+        max_symbol_exposure_usdt: Number(document.getElementById("maxSymbolExposureUsdt").value || 0),
+        initial_entry_on_start: !!document.getElementById("initialEntryOnStart").checked
+      };
+    }
+
+    function readBacktestOrderSizingInputs() {
+      return {
+        amount_mode: document.getElementById("btAmountMode").value,
+        fixed_order_usdt: Number(document.getElementById("btFixedOrderUsdt").value || 0),
+        max_order_usdt: Number(document.getElementById("btMaxOrderUsdt").value || 0),
+        risk_per_trade_pct: Number(document.getElementById("btRiskPerTradePct").value || 0),
+        stop_loss_pct: Number(document.getElementById("btStopLossPct").value || 0),
+        tradable_balance_ratio: Number(document.getElementById("btTradableBalanceRatio").value || 0),
+        max_open_trades: Number(document.getElementById("btMaxOpenTrades").value || 1),
+        max_symbol_exposure_usdt: Number(document.getElementById("btMaxSymbolExposureUsdt").value || 0),
+        initial_entry_on_start: !!document.getElementById("btInitialEntryOnStart").checked
+      };
+    }
+
+    function applyOrderSizingInputs(cfg) {
+      const c = cfg || modeOrderSizing[currentTradeMode];
+      document.getElementById("amountMode").value = c.amount_mode;
+      document.getElementById("fixedOrderUsdt").value = c.fixed_order_usdt;
+      document.getElementById("maxOrderUsdt").value = c.max_order_usdt;
+      document.getElementById("riskPerTradePct").value = c.risk_per_trade_pct;
+      document.getElementById("stopLossPct").value = c.stop_loss_pct;
+      document.getElementById("tradableBalanceRatio").value = c.tradable_balance_ratio;
+      document.getElementById("maxOpenTrades").value = c.max_open_trades;
+      document.getElementById("maxSymbolExposureUsdt").value = c.max_symbol_exposure_usdt;
+      document.getElementById("initialEntryOnStart").checked = !!c.initial_entry_on_start;
+      updateRatioHints();
+    }
+
+    function applyBacktestOrderSizingInputs(c) {
+      document.getElementById("btAmountMode").value = c.amount_mode;
+      document.getElementById("btFixedOrderUsdt").value = c.fixed_order_usdt;
+      document.getElementById("btMaxOrderUsdt").value = c.max_order_usdt;
+      document.getElementById("btRiskPerTradePct").value = c.risk_per_trade_pct;
+      document.getElementById("btStopLossPct").value = c.stop_loss_pct;
+      document.getElementById("btTradableBalanceRatio").value = c.tradable_balance_ratio;
+      document.getElementById("btMaxOpenTrades").value = c.max_open_trades;
+      document.getElementById("btMaxSymbolExposureUsdt").value = c.max_symbol_exposure_usdt;
+      document.getElementById("btInitialEntryOnStart").checked = !!c.initial_entry_on_start;
+      updateRatioHints();
+    }
+
+    function saveOrderSizingForCurrentMode() {
+      modeOrderSizing[currentTradeMode] = readOrderSizingInputs();
+    }
+
+    function loadOrderSizingForCurrentMode() {
+      applyOrderSizingInputs(modeOrderSizing[currentTradeMode]);
+    }
+
+    function syncTradeSettingsToBacktest(showToast = false, includeMarket = false) {
+      if (includeMarket) {
+        const tradeSymbol = document.getElementById("tradeSymbolSelect").value;
+        const tradeTf = document.getElementById("tradeTimeframeSelect").value;
+        if (tradeSymbol) document.getElementById("btSymbol").value = tradeSymbol;
+        if (tradeTf && [...document.getElementById("btTimeframe").options].some((o) => o.value === tradeTf)) {
+          document.getElementById("btTimeframe").value = tradeTf;
+        }
+      }
+
+      const tradeProfileId = document.getElementById("strategyName").value;
+      if (tradeProfileId && [...document.getElementById("btStrategy").options].some((o) => o.value === tradeProfileId)) {
+        document.getElementById("btStrategy").value = tradeProfileId;
+      }
+      document.getElementById("btParams").value = document.getElementById("strategyParams").value;
+      applyBacktestOrderSizingInputs(readOrderSizingInputs());
+      document.getElementById("btOrderSize").value = Number(document.getElementById("fixedOrderUsdt").value || 100);
+      validateBacktestParams(false);
+      if (showToast) {
+        document.getElementById("btStatus").textContent = "回测状态: 已同步交易参数";
+      }
+    }
+
+    function applyRiskPreset(name) {
+      const preset = riskPresets[name];
+      if (!preset) return;
+      modeOrderSizing[currentTradeMode] = { ...preset };
+      applyOrderSizingInputs(modeOrderSizing[currentTradeMode]);
+      document.getElementById("error").textContent = `错误: -`;
+    }
+
+    function api(path, method = "GET", body) {
+      return fetch(path, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined
+      }).then(async (res) => {
+        if (!res.ok) {
+          const raw = await res.text();
+          let msg = raw;
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.detail) {
+              if (Array.isArray(parsed.detail) && parsed.detail.length) {
+                const first = parsed.detail[0] || {};
+                if (first.msg && first.input !== undefined) {
+                  msg = `${first.msg}（当前值: ${first.input}）`;
+                } else {
+                  msg = JSON.stringify(parsed.detail);
+                }
+              } else if (typeof parsed.detail === "string") {
+                msg = parsed.detail;
+              } else {
+                msg = JSON.stringify(parsed.detail);
+              }
+            }
+          } catch {}
+          throw new Error(msg);
+        }
+        return res.json();
+      });
+    }
+
+    function parseParams() {
+      const raw = document.getElementById("strategyParams").value.trim() || "{}";
+      return JSON.parse(raw);
+    }
+
+    function fmt(v, n = 6) {
+      if (v === null || v === undefined || Number.isNaN(Number(v))) return "-";
+      return Number(v).toFixed(n);
+    }
+
+    function validateFields(fieldIds, errorElId, showMessage = false) {
+      const errors = [];
+      for (const id of fieldIds) {
+        const rule = validationRules[id];
+        const el = document.getElementById(id);
+        if (!rule || !el) continue;
+        const val = Number(el.value);
+        let bad = false;
+        if (!Number.isFinite(val)) {
+          bad = true;
+          errors.push(`${rule.label} 不是有效数字`);
+        } else if (val < rule.min || val > rule.max) {
+          bad = true;
+          errors.push(`${rule.label} 需在 [${rule.min}, ${rule.max}]`);
+        }
+        el.classList.toggle("invalid", bad);
+      }
+      const errEl = document.getElementById(errorElId);
+      if (errEl) {
+        if (!errors.length) {
+          errEl.textContent = "参数校验: 通过";
+        } else {
+          errEl.textContent = showMessage ? `参数校验: ${errors.join("；")}` : "参数校验: 存在超范围参数（红框）";
+        }
+      }
+      return errors;
+    }
+
+    function validateTradeParams(showMessage = false) {
+      return validateFields(
+        [
+          "fixedOrderUsdt",
+          "maxOrderUsdt",
+          "riskPerTradePct",
+          "stopLossPct",
+          "tradableBalanceRatio",
+          "maxOpenTrades",
+          "maxSymbolExposureUsdt",
+        ],
+        "tradeParamError",
+        showMessage
+      );
+    }
+
+    function validateBacktestParams(showMessage = false) {
+      return validateFields(
+        [
+          "btLimit",
+          "btCapital",
+          "btOrderSize",
+          "btFeeRate",
+          "btFixedOrderUsdt",
+          "btMaxOrderUsdt",
+          "btRiskPerTradePct",
+          "btStopLossPct",
+          "btTradableBalanceRatio",
+          "btMaxOpenTrades",
+          "btMaxSymbolExposureUsdt",
+          "btOptMaxCandidates",
+          "btOptTopK",
+        ],
+        "btParamError",
+        showMessage
+      );
+    }
+
+    function updateRatioHints() {
+      const ratioEl = document.getElementById("tradableBalanceRatio");
+      const ratioHint = document.getElementById("tradableBalanceRatioHint");
+      if (ratioEl && ratioHint) {
+        const v = Number(ratioEl.value);
+        ratioHint.textContent = Number.isFinite(v) ? `= ${fmt(v * 100, 0)}%` : "= -";
+      }
+      const btRatioEl = document.getElementById("btTradableBalanceRatio");
+      const btRatioHint = document.getElementById("btTradableBalanceRatioHint");
+      if (btRatioEl && btRatioHint) {
+        const v = Number(btRatioEl.value);
+        btRatioHint.textContent = Number.isFinite(v) ? `= ${fmt(v * 100, 0)}%` : "= -";
+      }
+    }
+
+    function getAdaptivePriceDigits(price, span = null) {
+      const p = Math.abs(Number(price || 0));
+      const s = Math.abs(Number(span || 0));
+      let d = 2;
+      if (p < 1000) d = 3;
+      if (p < 100) d = 4;
+      if (p < 1) d = 5;
+      if (p < 0.1) d = 6;
+      if (p < 0.01) d = 7;
+      if (s > 0 && s < 0.01) d = Math.max(d, 6);
+      if (s > 0 && s < 0.001) d = Math.max(d, 7);
+      return Math.min(8, Math.max(2, d));
+    }
+
+    function getFavorites() {
+      try {
+        const arr = JSON.parse(localStorage.getItem(favoritesKey) || "[]");
+        return Array.isArray(arr) ? arr : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function setFavorites(arr) {
+      localStorage.setItem(favoritesKey, JSON.stringify(arr));
+    }
+
+    function renderFavorites() {
+      const el = document.getElementById("favoriteList");
+      const list = getFavorites();
+      el.innerHTML = "";
+      if (!list.length) {
+        el.innerHTML = "<span class='muted'>暂无自选，选择交易对后点击加入自选。</span>";
+        return;
+      }
+      for (const s of list) {
+        const item = document.createElement("div");
+        item.className = "fav";
+        item.textContent = s;
+        item.onclick = () => {
+          document.getElementById("symbolSelect").value = s;
+          loadKline();
+        };
+        el.appendChild(item);
+      }
+    }
+
+    function addFavorite() {
+      const symbol = document.getElementById("symbolSelect").value;
+      const arr = getFavorites();
+      if (!arr.includes(symbol)) arr.unshift(symbol);
+      setFavorites(arr.slice(0, 30));
+      renderFavorites();
+    }
+
+    function removeFavorite() {
+      const symbol = document.getElementById("symbolSelect").value;
+      setFavorites(getFavorites().filter((s) => s !== symbol));
+      renderFavorites();
+    }
+
+    function applyStrategyTemplate() {
+      const profile = getSelectedStrategyProfile();
+      const strategyName = profile ? profile.strategy_name : "ema_cross";
+      const params = profile ? (profile.params || {}) : (strategyTemplates[strategyName] || {});
+      document.getElementById("strategyParams").value = JSON.stringify(params, null, 2);
+    }
+
+    function getSelectedStrategyProfile() {
+      const id = document.getElementById("strategyName").value;
+      return strategyProfilesById[id] || null;
+    }
+
+    async function loadStrategyProfiles() {
+      const select = document.getElementById("strategyName");
+      const old = select.value;
+      select.innerHTML = "";
+      strategyProfiles = [];
+      Object.keys(strategyProfilesById).forEach((k) => delete strategyProfilesById[k]);
+
+      try {
+        const res = await api("/api/strategy-profiles?enabled_only=true");
+        strategyProfiles = res.profiles || [];
+      } catch {
+        strategyProfiles = [];
+      }
+
+      if (!strategyProfiles.length) {
+        // fallback to built-in list to avoid blocking trading page
+        const builtins = ["ema_cross", "bollinger", "rsi", "grid", "hf_scalp", "smart_adaptive"];
+        for (const b of builtins) {
+          const id = `builtin:${b}`;
+          const p = { id, name: `${b}_default`, strategy_name: b, params: strategyTemplates[b] || {}, enabled: true };
+          strategyProfiles.push(p);
+          strategyProfilesById[id] = p;
+          const op = document.createElement("option");
+          op.value = id;
+          op.textContent = p.name;
+          select.appendChild(op);
+        }
+      } else {
+        for (const p of strategyProfiles) {
+          strategyProfilesById[p.id] = p;
+          const op = document.createElement("option");
+          op.value = p.id;
+          op.textContent = p.name || p.strategy_name || p.id;
+          select.appendChild(op);
+        }
+      }
+
+      if ([...select.options].some((o) => o.value === old)) {
+        select.value = old;
+      }
+      if (!select.value && select.options.length) {
+        select.value = select.options[0].value;
+      }
+      applyStrategyTemplate();
+      const bt = document.getElementById("btStrategy");
+      if (bt) {
+        const oldBt = bt.value;
+        bt.innerHTML = select.innerHTML;
+        bt.value = [...bt.options].some((o) => o.value === oldBt) ? oldBt : select.value;
+        applyBacktestTemplate();
+      }
+    }
+
+    function calcMA(data, period) {
+      const out = [];
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) {
+        sum += data[i].close;
+        if (i >= period) sum -= data[i - period].close;
+        out.push(i >= period - 1 ? sum / period : null);
+      }
+      return out;
+    }
+
+    function formatTime(ts, opts = {}) {
+      const d = new Date(ts);
+      const includeYear = !!opts.includeYear;
+      const includeTime = opts.includeTime !== false;
+      const shortDate = !!opts.shortDate;
+      const yy = String(d.getFullYear());
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mi = String(d.getMinutes()).padStart(2, "0");
+      if (includeYear && includeTime) return `${yy}-${mm}-${dd} ${hh}:${mi}`;
+      if (includeYear && !includeTime) return `${yy}-${mm}-${dd}`;
+      if (shortDate) return `${mm}-${dd}`;
+      return includeTime ? `${mm}-${dd} ${hh}:${mi}` : `${mm}-${dd}`;
+    }
+
+    function clampViewport() {
+      const maxVisible = Math.max(20, bars.length || 20);
+      visibleBars = Math.max(20, Math.min(500, visibleBars, maxVisible));
+      const maxOffset = Math.max(0, bars.length - visibleBars);
+      offsetBars = Math.max(0, Math.min(maxOffset, offsetBars));
+    }
+
+    function getVisibleSlice() {
+      clampViewport();
+      const end = Math.max(0, bars.length - offsetBars);
+      const start = Math.max(0, end - visibleBars);
+      return bars.slice(start, end);
+    }
+
+    function drawChart() {
+      const canvas = document.getElementById("klineCanvas");
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const W = Math.max(1, Math.floor(rect.width * dpr));
+      const H = Math.max(1, Math.floor(rect.height * dpr));
+      if (canvas.width !== W || canvas.height !== H) {
+        canvas.width = W;
+        canvas.height = H;
+      }
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = "#0b1626";
+      ctx.fillRect(0, 0, W, H);
+
+      const visible = getVisibleSlice();
+      if (!visible.length) {
+        ctx.fillStyle = "#9fb3d0";
+        ctx.font = `${12 * dpr}px Segoe UI`;
+        ctx.fillText("暂无K线数据（请检查图表状态）", 14 * dpr, 28 * dpr);
+        return;
+      }
+
+      const padL = 52 * dpr;
+      const padR = 66 * dpr;
+      const padT = 16 * dpr;
+      const padB = 30 * dpr;
+      const volH = Math.floor(H * 0.22);
+      const priceH = H - volH - padT - padB - 8 * dpr;
+
+      const priceTop = padT;
+      const priceBottom = priceTop + priceH;
+      const volTop = priceBottom + 8 * dpr;
+      const volBottom = H - padB;
+
+      ctx.strokeStyle = "#1f3550";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = priceTop + (priceH * i) / 4;
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(W - padR, y);
+        ctx.stroke();
+      }
+
+      const highs = visible.map((b) => b.high);
+      const lows = visible.map((b) => b.low);
+      let minP = Math.min(...lows);
+      let maxP = Math.max(...highs);
+      if (maxP <= minP) maxP = minP + 1;
+      const pPad = (maxP - minP) * 0.05;
+      minP -= pPad;
+      maxP += pPad;
+      const priceDigits = getAdaptivePriceDigits(Math.max(Math.abs(maxP), Math.abs(minP)), maxP - minP);
+
+      const vols = visible.map((b) => b.volume || 0);
+      const maxVol = Math.max(...vols, 1);
+
+      const N = visible.length;
+      const innerW = W - padL - padR;
+      const step = innerW / N;
+      const bodyW = Math.max(1, step * 0.62);
+      const visibleSpanMs = Math.max(0, visible[N - 1].time - visible[0].time);
+      const tf = document.getElementById("timeframeSelect")?.value || "1m";
+      const longRange =
+        visibleSpanMs >= 1000 * 60 * 60 * 24 * 120 || ["1d", "3d", "1w", "1M"].includes(tf);
+      const noClock = ["1d", "3d", "1w", "1M"].includes(tf);
+
+      function yPrice(p) { return priceTop + ((maxP - p) / (maxP - minP)) * priceH; }
+      function yVol(v) { return volBottom - (v / maxVol) * (volBottom - volTop); }
+
+      for (let i = 0; i < N; i++) {
+        const b = visible[i];
+        const x = padL + i * step + step / 2;
+        const yo = yPrice(b.open);
+        const yc = yPrice(b.close);
+        const yh = yPrice(b.high);
+        const yl = yPrice(b.low);
+        const up = b.close >= b.open;
+        ctx.strokeStyle = up ? "#2ecc71" : "#ff5f7a";
+        ctx.fillStyle = up ? "#2ecc71" : "#ff5f7a";
+
+        ctx.beginPath();
+        ctx.moveTo(x, yh);
+        ctx.lineTo(x, yl);
+        ctx.stroke();
+
+        const top = Math.min(yo, yc);
+        const bh = Math.max(1, Math.abs(yc - yo));
+        ctx.fillRect(x - bodyW / 2, top, bodyW, bh);
+
+        const vy = yVol(b.volume || 0);
+        ctx.globalAlpha = 0.6;
+        ctx.fillRect(x - bodyW / 2, vy, bodyW, volBottom - vy);
+        ctx.globalAlpha = 1;
+      }
+
+      const ma9 = calcMA(visible, 9);
+      const ma25 = calcMA(visible, 25);
+      function drawMA(arr, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        let started = false;
+        for (let i = 0; i < arr.length; i++) {
+          const v = arr[i];
+          if (v === null || v === undefined) continue;
+          const x = padL + i * step + step / 2;
+          const y = yPrice(v);
+          if (!started) {
+            ctx.moveTo(x, y);
+            started = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        if (started) ctx.stroke();
+      }
+      drawMA(ma9, "#f4c542");
+      drawMA(ma25, "#d14ef5");
+
+      ctx.fillStyle = "#9fb3d0";
+      ctx.font = `${11 * dpr}px Segoe UI`;
+      for (let i = 0; i <= 4; i++) {
+        const y = priceTop + (priceH * i) / 4;
+        const val = maxP - ((maxP - minP) * i) / 4;
+        ctx.fillText(val.toFixed(priceDigits), W - padR + 4 * dpr, y + 4 * dpr);
+      }
+
+      const tickCount = Math.min(6, Math.max(2, Math.floor(N / 20)));
+      for (let i = 0; i <= tickCount; i++) {
+        const idx = Math.min(N - 1, Math.floor((i / tickCount) * (N - 1)));
+        const x = padL + idx * step + step / 2;
+        const label = formatTime(visible[idx].time, {
+          includeYear: longRange,
+          includeTime: !noClock,
+          shortDate: !longRange && noClock,
+        });
+        ctx.fillStyle = "#8ea3c3";
+        ctx.font = `${10 * dpr}px Segoe UI`;
+        ctx.fillText(label, x - 28 * dpr, H - 10 * dpr);
+      }
+
+      if (hoverX !== null && hoverY !== null) {
+        const x = hoverX * dpr;
+        const y = hoverY * dpr;
+        const inChart = x >= padL && x <= (W - padR) && y >= priceTop && y <= volBottom;
+        if (inChart) {
+          const idx = Math.max(0, Math.min(N - 1, Math.floor((x - padL) / step)));
+          const b = visible[idx];
+          const cx = padL + idx * step + step / 2;
+          const priceAtY = maxP - ((y - priceTop) / priceH) * (maxP - minP);
+
+          ctx.strokeStyle = "rgba(190,210,240,0.45)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(padL, y);
+          ctx.lineTo(W - padR, y);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cx, priceTop);
+          ctx.lineTo(cx, volBottom);
+          ctx.stroke();
+
+          const pText = priceAtY.toFixed(priceDigits);
+          ctx.font = `${11 * dpr}px Segoe UI`;
+          const pW = ctx.measureText(pText).width + 10 * dpr;
+          const pH = 16 * dpr;
+          ctx.fillStyle = "#1f3550";
+          ctx.fillRect(W - padR + 2 * dpr, y - pH / 2, pW, pH);
+          ctx.fillStyle = "#dce9ff";
+          ctx.fillText(pText, W - padR + 6 * dpr, y + 4 * dpr);
+
+          const tText = formatTime(b.time, {
+            includeYear: longRange,
+            includeTime: !noClock,
+          });
+          const tW = ctx.measureText(tText).width + 10 * dpr;
+          const tH = 16 * dpr;
+          const tx = Math.max(padL, Math.min(cx - tW / 2, W - padR - tW));
+          ctx.fillStyle = "#1f3550";
+          ctx.fillRect(tx, H - padB + 2 * dpr, tW, tH);
+          ctx.fillStyle = "#dce9ff";
+          ctx.fillText(tText, tx + 5 * dpr, H - padB + 14 * dpr);
+
+          const info = `开 ${b.open.toFixed(priceDigits)}  高 ${b.high.toFixed(priceDigits)}  低 ${b.low.toFixed(priceDigits)}  收 ${b.close.toFixed(priceDigits)}  量 ${Number(b.volume || 0).toFixed(2)}`;
+          ctx.fillStyle = "rgba(11,22,38,0.9)";
+          ctx.fillRect(padL, 2 * dpr, Math.min(W - padL - padR, ctx.measureText(info).width + 12 * dpr), 18 * dpr);
+          ctx.fillStyle = "#dce9ff";
+          ctx.fillText(info, padL + 6 * dpr, 15 * dpr);
+        }
+      }
+    }
+
+    function bindChartInteraction() {
+      const canvas = document.getElementById("klineCanvas");
+      canvas.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartOffset = offsetBars;
+        canvas.classList.add("dragging");
+      });
+      window.addEventListener("mouseup", () => {
+        isDragging = false;
+        canvas.classList.remove("dragging");
+      });
+      window.addEventListener("mousemove", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        hoverX = e.clientX - rect.left;
+        hoverY = e.clientY - rect.top;
+        if (isDragging && bars.length) {
+          const pxPerBar = rect.width / Math.max(1, visibleBars);
+          const deltaBars = Math.round((e.clientX - dragStartX) / Math.max(pxPerBar, 1));
+          offsetBars = dragStartOffset + deltaBars;
+          clampViewport();
+        }
+        drawChart();
+      });
+      canvas.addEventListener("mouseleave", () => {
+        hoverX = null;
+        hoverY = null;
+        if (!isDragging) drawChart();
+      });
+      canvas.addEventListener("wheel", (e) => {
+        if (!bars.length) return;
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 12 : -12;
+        visibleBars += delta;
+        clampViewport();
+        drawChart();
+      }, { passive: false });
+    }
+
+    function closeWs() {
+      if (ws) {
+        try { ws.close(); } catch {}
+      }
+      ws = null;
+    }
+
+    function connectWs() {
+      closeWs();
+      const symbol = (document.getElementById("symbolSelect").value || "BTC/USDT").replace("/", "").toLowerCase();
+      const timeframe = document.getElementById("timeframeSelect").value || "1m";
+      const url = `wss://stream.binance.com:9443/ws/${symbol}@kline_${timeframe}`;
+      ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        document.getElementById("chartStatus").textContent = `图表状态: 实时流已连接 (${symbol} ${timeframe})`;
+      };
+      ws.onmessage = (evt) => {
+        try {
+          const msg = JSON.parse(evt.data);
+          if (!msg.k) return;
+          const k = msg.k;
+          const bar = {
+            time: Number(k.t),
+            open: Number(k.o),
+            high: Number(k.h),
+            low: Number(k.l),
+            close: Number(k.c),
+            volume: Number(k.v || 0),
+          };
+          if (!bars.length) bars.push(bar);
+          else if (bars[bars.length - 1].time === bar.time) bars[bars.length - 1] = bar;
+          else bars.push(bar);
+          if (bars.length > 1000) bars = bars.slice(-1000);
+          drawChart();
+        } catch (e) {
+          document.getElementById("chartStatus").textContent = `图表状态: WS解析失败 ${e.message}`;
+        }
+      };
+      ws.onerror = () => {
+        document.getElementById("chartStatus").textContent = "图表状态: 实时流异常，已退回轮询";
+      };
+    }
+
+    async function loadSymbols() {
+      const select = document.getElementById("symbolSelect");
+      const tradeSelect = document.getElementById("tradeSymbolSelect");
+      const btSelect = document.getElementById("btSymbol");
+      const old = select.value || "BTC/USDT";
+      select.innerHTML = "";
+      tradeSelect.innerHTML = "";
+      btSelect.innerHTML = "";
+      for (const s of coreSymbols) {
+        const op = document.createElement("option");
+        op.value = s;
+        op.textContent = s;
+        select.appendChild(op);
+      }
+      try {
+        const res = await api("/api/symbols?quote=USDT&limit=500");
+        select.innerHTML = "";
+        for (const s of (res.symbols || coreSymbols)) {
+          const op = document.createElement("option");
+          op.value = s;
+          op.textContent = s;
+          select.appendChild(op);
+        }
+      } catch {}
+      if ([...select.options].some((o) => o.value === old)) select.value = old;
+      select.onchange = () => loadKline();
+      for (const o of [...select.options]) {
+        tradeSelect.appendChild(o.cloneNode(true));
+        btSelect.appendChild(o.cloneNode(true));
+      }
+      tradeSelect.value = select.value;
+      btSelect.value = select.value;
+      document.getElementById("tradeTimeframeSelect").innerHTML = document.getElementById("timeframeSelect").innerHTML;
+      document.getElementById("tradeTimeframeSelect").value = document.getElementById("timeframeSelect").value;
+      tradeSelect.onchange = () => {};
+    }
+
+    async function loadMarketTicker() {
+      try {
+        const symbol = document.getElementById("symbolSelect").value || "BTC/USDT";
+        const res = await api("/api/ticker", "POST", { symbol });
+        const t = res.ticker || {};
+        const pd = getAdaptivePriceDigits(t.last || 0);
+        document.getElementById("mHigh").textContent = fmt(t.high, pd);
+        document.getElementById("mLow").textContent = fmt(t.low, pd);
+        document.getElementById("mBid").textContent = fmt(t.bid, pd);
+        document.getElementById("mAsk").textContent = fmt(t.ask, pd);
+        document.getElementById("mChg").textContent = `${fmt(t.price_change_pct, 2)}%`;
+        document.getElementById("mVol").textContent = fmt(t.quote_volume, 2);
+        document.getElementById("tradeLastPrice").textContent = fmt(t.last, pd);
+        document.getElementById("tradeHigh").textContent = fmt(t.high, pd);
+        document.getElementById("tradeLow").textContent = fmt(t.low, pd);
+        document.getElementById("tradeChg").textContent = `${fmt(t.price_change_pct, 2)}%`;
+      } catch {
+        // ignore
+      }
+    }
+
+    function syncTradeToMarket() {
+      document.getElementById("symbolSelect").value = document.getElementById("tradeSymbolSelect").value;
+      document.getElementById("timeframeSelect").value = document.getElementById("tradeTimeframeSelect").value;
+      loadKline();
+      switchPage("market");
+    }
+
+    async function loadKline() {
+      try {
+        const symbol = document.getElementById("symbolSelect").value || "BTC/USDT";
+        const timeframe = document.getElementById("timeframeSelect").value || "1m";
+        const res = await api("/api/ohlcv", "POST", { symbol, timeframe, limit: 600 });
+        const rows = res.ohlcv || [];
+        if (!rows.length) throw new Error("交易所返回空K线");
+        bars = rows.map((r) => ({
+          time: Number(r[0]),
+          open: Number(r[1]),
+          high: Number(r[2]),
+          low: Number(r[3]),
+          close: Number(r[4]),
+          volume: Number(r[5] || 0),
+        }));
+        visibleBars = Math.min(120, bars.length);
+        offsetBars = 0;
+        drawChart();
+        connectWs();
+        document.getElementById("chartStatus").textContent = `图表状态: ${symbol} ${timeframe} 已加载 ${bars.length} 根K线`;
+        loadMarketTicker();
+      } catch (e) {
+        closeWs();
+        bars = [];
+        drawChart();
+        document.getElementById("chartStatus").textContent = `图表状态: K线加载失败 ${e.message}`;
+      }
+    }
+
+    async function startEngine() {
+      try {
+        const errs = validateTradeParams(true);
+        if (errs.length) {
+          document.getElementById("error").textContent = "错误: 参数超出合理范围，已阻止启动";
+          return;
+        }
+        const profile = getSelectedStrategyProfile();
+        await api("/api/start", "POST", {
+          symbol: document.getElementById("tradeSymbolSelect").value,
+          strategy_profile_id: profile ? profile.id : null,
+          strategy_name: profile ? profile.strategy_name : "ema_cross",
+          strategy_params: parseParams(),
+          trade_mode: currentTradeMode,
+          order_sizing: readOrderSizingInputs()
+        });
+        await refreshState();
+      } catch (e) {
+        document.getElementById("error").textContent = `错误: ${e.message}`;
+      }
+    }
+
+    async function stopEngine() {
+      try {
+        await api("/api/stop", "POST", {
+          trade_mode: currentTradeMode,
+          symbol: document.getElementById("tradeSymbolSelect").value
+        });
+        await refreshState();
+      } catch (e) {
+        document.getElementById("error").textContent = `错误: ${e.message}`;
+      }
+    }
+
+    async function stopBotById(botId) {
+      try {
+        await api("/api/stop", "POST", { bot_id: botId });
+        await refreshState();
+      } catch (e) {
+        document.getElementById("error").textContent = `错误: ${e.message}`;
+      }
+    }
+
+    function renderOrders(orders) {
+      const tbody = document.getElementById("orders");
+      tbody.innerHTML = "";
+      for (const o of (orders || [])) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${o.ts || "-"}</td>
+          <td>${o.symbol || "-"}</td>
+          <td class="${o.side === "buy" ? "ok" : "down"}">${o.side || "-"}</td>
+          <td>${fmt(o.amount, 6)}</td>
+          <td>${fmt(o.price, 2)}</td>
+          <td>${o.reason || "-"}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function renderActiveBots(bots) {
+      const tbody = document.getElementById("activeBotsBody");
+      tbody.innerHTML = "";
+      if (!bots || !bots.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="7" class="muted">当前模式下暂无正在运行的自动交易</td>`;
+        tbody.appendChild(tr);
+        return;
+      }
+      for (const b of bots) {
+        const pnl = Number(b.pnl || 0);
+        const holdAmount = Number(b.position_qty || 0) * Number(b.last_price || 0);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${b.symbol || "-"}</td>
+          <td>${b.buy_count ?? 0} / ${b.sell_count ?? 0}</td>
+          <td>${b.trades_count ?? 0}</td>
+          <td>${fmt(holdAmount, 2)}</td>
+          <td class="${pnl >= 0 ? "ok" : "down"}">${fmt(pnl, 2)}</td>
+          <td>${b.running ? "运行中" : "已停止"}</td>
+          <td><button onclick="stopBotById('${b.bot_id}')">停止</button></td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    async function refreshState() {
+      try {
+        const s = await api(`/api/state?mode=${encodeURIComponent(currentTradeMode)}`);
+        const bots = s.active_bots || [];
+
+        const selectedSymbol = document.getElementById("tradeSymbolSelect").value;
+        const selectedBot = bots.find((b) => b.symbol === selectedSymbol) || bots[0] || null;
+
+        document.getElementById("running").textContent = `状态: ${bots.length ? "运行中" : "已停止"}`;
+        document.getElementById("signal").textContent = `信号: ${selectedBot ? selectedBot.last_signal : "-"}`;
+        document.getElementById("mode").textContent = `模式: ${currentTradeMode}`;
+        if (selectedBot) {
+          const pd = getAdaptivePriceDigits(selectedBot.last_price);
+          document.getElementById("price").textContent = fmt(selectedBot.last_price, pd);
+        } else {
+          document.getElementById("price").textContent = "-";
+        }
+        document.getElementById("position").textContent = selectedBot ? fmt(selectedBot.position_qty, 6) : "-";
+        document.getElementById("trades").textContent = selectedBot ? String(selectedBot.trades_count ?? 0) : "0";
+        document.getElementById("tick").textContent = s.last_tick || "-";
+        document.getElementById("error").textContent = `错误: ${s.last_error || "-"}`;
+        document.getElementById("signalReason").textContent = `信号解释: ${selectedBot?.signal_reason || s.signal_reason || "-"}`;
+        const metrics = selectedBot?.signal_metrics || s.signal_metrics || {};
+        document.getElementById("signalMetrics").textContent = `指标: ${Object.keys(metrics).length ? JSON.stringify(metrics) : "-"}`;
+
+        renderActiveBots(bots);
+        renderOrders(s.recent_orders);
+      } catch (e) {
+        document.getElementById("error").textContent = `错误: ${e.message}`;
+      }
+    }
+
+    function applyBacktestTemplate() {
+      const p = strategyProfilesById[document.getElementById("btStrategy").value];
+      const strategyName = p ? p.strategy_name : "ema_cross";
+      const params = p ? (p.params || {}) : (strategyTemplates[strategyName] || {});
+      document.getElementById("btParams").value = JSON.stringify(params, null, 2);
+
+      // If execution params are embedded in strategy JSON, sync them to UI.
+      const tf = params.timeframe;
+      if (typeof tf === "string" && [...document.getElementById("btTimeframe").options].some((o) => o.value === tf)) {
+        document.getElementById("btTimeframe").value = tf;
+      }
+      const klineLimit = Number(params.signal_kline_limit);
+      if (Number.isFinite(klineLimit) && klineLimit >= 50 && klineLimit <= 1000) {
+        document.getElementById("btRangeDays").value = "0";
+        document.getElementById("btLimit").value = Math.round(klineLimit);
+      }
+      updateBacktestRangeMode();
+      validateBacktestParams(false);
+    }
+
+    function toLocalDatetimeValue(ms) {
+      const d = new Date(ms);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      return `${y}-${m}-${day}T${hh}:${mm}`;
+    }
+
+    function initBacktestCustomRange() {
+      const end = Date.now();
+      const start = end - 30 * 24 * 60 * 60 * 1000;
+      document.getElementById("btStartTime").value = toLocalDatetimeValue(start);
+      document.getElementById("btEndTime").value = toLocalDatetimeValue(end);
+    }
+
+    function timeframeToMs(tf) {
+      const m = String(tf || "").match(/^(\d+)([smhdwM])$/);
+      if (!m) return 60 * 1000;
+      const v = Number(m[1]);
+      const unit = m[2];
+      const unitMs = { s: 1000, m: 60000, h: 3600000, d: 86400000, w: 604800000, M: 2592000000 }[unit] || 60000;
+      return v * unitMs;
+    }
+
+    function updateEstimatedBacktestLimit() {
+      const rangeDays = Number(document.getElementById("btRangeDays").value || 0);
+      const tf = document.getElementById("btTimeframe").value || "1m";
+      const tfMs = timeframeToMs(tf);
+      const limitInput = document.getElementById("btLimit");
+      const hint = document.getElementById("btRangeHint");
+      const isCustom = rangeDays < 0;
+      if (!hint) return;
+
+      if (isCustom) {
+        const s = new Date(document.getElementById("btStartTime").value || "").getTime();
+        const e = new Date(document.getElementById("btEndTime").value || "").getTime();
+        if (Number.isFinite(s) && Number.isFinite(e) && e > s) {
+          const estimated = Math.max(100, Math.ceil((e - s) / tfMs) + 5);
+          const clamped = Math.min(5000, estimated);
+          limitInput.value = clamped;
+          const tip = estimated > 5000 ? "，超出部分将截断为5000根" : "";
+          hint.textContent = `范围提示: 预计约 ${estimated} 根K线（按${tf}）${tip}`;
+        } else {
+          hint.textContent = "范围提示: 请填写有效的开始/结束时间";
+        }
+        return;
+      }
+
+      if (rangeDays > 0) {
+        const estimated = Math.max(100, Math.ceil((rangeDays * 24 * 60 * 60 * 1000) / tfMs) + 5);
+        const clamped = Math.min(5000, estimated);
+        limitInput.value = clamped;
+        const tip = estimated > 5000 ? "，超出部分将截断为5000根" : "";
+        hint.textContent = `范围提示: 过去${rangeDays}天约 ${estimated} 根K线（按${tf}）${tip}`;
+      } else {
+        hint.textContent = "范围提示: 当前按你手动填写的K线数量回测";
+      }
+    }
+
+    function updateBacktestRangeMode() {
+      const rangeDays = Number(document.getElementById("btRangeDays").value || 0);
+      const limitInput = document.getElementById("btLimit");
+      const isCustom = rangeDays < 0;
+      limitInput.disabled = rangeDays > 0 || isCustom;
+      ["btStartTimeLabel", "btStartTime", "btEndTimeLabel", "btEndTime"].forEach((id) => {
+        document.getElementById(id).style.display = isCustom ? "" : "none";
+      });
+      if (isCustom && (!document.getElementById("btStartTime").value || !document.getElementById("btEndTime").value)) {
+        initBacktestCustomRange();
+      }
+      updateEstimatedBacktestLimit();
+    }
+
+    function drawEquity(curve) {
+      const canvas = document.getElementById("equityCanvas");
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const W = Math.max(1, Math.floor(rect.width * dpr));
+      const H = Math.max(1, Math.floor(rect.height * dpr));
+      if (canvas.width !== W || canvas.height !== H) {
+        canvas.width = W;
+        canvas.height = H;
+      }
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = "#0b1626";
+      ctx.fillRect(0, 0, W, H);
+      if (!curve || !curve.length) return;
+      const vals = curve.map((x) => Number(x.equity || 0));
+      const times = curve.map((x) => new Date(x.ts).getTime());
+      let min = Math.min(...vals), max = Math.max(...vals);
+      if (max <= min) max = min + 1;
+      const pad = (max - min) * 0.05;
+      min -= pad; max += pad;
+      const left = 64 * dpr, right = 20 * dpr, top = 16 * dpr, bottom = 34 * dpr;
+      const innerW = W - left - right, innerH = H - top - bottom;
+      ctx.font = `${11 * dpr}px "Segoe UI"`;
+      ctx.fillStyle = "#86a2c8";
+      ctx.strokeStyle = "#1f3550";
+      for (let i = 0; i <= 4; i++) {
+        const y = top + (innerH * i) / 4;
+        const v = max - ((max - min) * i) / 4;
+        ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(W - right, y); ctx.stroke();
+        ctx.fillText(fmt(v, 2), 6 * dpr, y + 4 * dpr);
+      }
+      const tMin = times[0];
+      const tMax = times[times.length - 1];
+      for (let i = 0; i <= 4; i++) {
+        const x = left + (innerW * i) / 4;
+        const t = tMin + ((tMax - tMin) * i) / 4;
+        const date = new Date(t);
+        const label = (tMax - tMin) > 1000 * 60 * 60 * 24 * 365
+          ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+          : `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        ctx.fillText(label, x - 22 * dpr, H - 8 * dpr);
+      }
+      ctx.strokeStyle = "#56a3ff";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      for (let i = 0; i < vals.length; i++) {
+        const x = left + (innerW * i) / Math.max(vals.length - 1, 1);
+        const y = top + ((max - vals[i]) / (max - min)) * innerH;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    function drawBacktestPrice(curve) {
+      const canvas = document.getElementById("btPriceCanvas");
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const W = Math.max(1, Math.floor(rect.width * dpr));
+      const H = Math.max(1, Math.floor(rect.height * dpr));
+      if (canvas.width !== W || canvas.height !== H) {
+        canvas.width = W;
+        canvas.height = H;
+      }
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = "#0b1626";
+      ctx.fillRect(0, 0, W, H);
+      if (!curve || !curve.length) return;
+
+      const vals = curve.map((x) => Number(x.close || 0));
+      const times = curve.map((x) => new Date(x.ts).getTime());
+      let min = Math.min(...vals), max = Math.max(...vals);
+      if (max <= min) max = min + 1;
+      const pad = (max - min) * 0.05;
+      min -= pad;
+      max += pad;
+      const digits = getAdaptivePriceDigits(Math.max(Math.abs(min), Math.abs(max)), max - min);
+
+      const left = 72 * dpr, right = 20 * dpr, top = 16 * dpr, bottom = 34 * dpr;
+      const innerW = W - left - right, innerH = H - top - bottom;
+
+      ctx.font = `${11 * dpr}px "Segoe UI"`;
+      ctx.fillStyle = "#86a2c8";
+      ctx.strokeStyle = "#1f3550";
+      for (let i = 0; i <= 4; i++) {
+        const y = top + (innerH * i) / 4;
+        const v = max - ((max - min) * i) / 4;
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(W - right, y);
+        ctx.stroke();
+        ctx.fillText(fmt(v, digits), 6 * dpr, y + 4 * dpr);
+      }
+      const tMin = times[0];
+      const tMax = times[times.length - 1];
+      for (let i = 0; i <= 4; i++) {
+        const x = left + (innerW * i) / 4;
+        const t = tMin + ((tMax - tMin) * i) / 4;
+        const date = new Date(t);
+        const label = (tMax - tMin) > 1000 * 60 * 60 * 24 * 365
+          ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+          : `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        ctx.fillText(label, x - 22 * dpr, H - 8 * dpr);
+      }
+
+      ctx.strokeStyle = "#30d179";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      for (let i = 0; i < vals.length; i++) {
+        const x = left + (innerW * i) / Math.max(vals.length - 1, 1);
+        const y = top + ((max - vals[i]) / (max - min)) * innerH;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    function renderBacktestOrders(orders) {
+      const tb = document.getElementById("btOrders");
+      tb.innerHTML = "";
+      for (const o of (orders || [])) {
+        const tr = document.createElement("tr");
+        const ts = o.ts ? new Date(Number(o.ts)).toLocaleString() : "-";
+        tr.innerHTML = `
+          <td>${ts}</td>
+          <td class="${o.side === "buy" ? "ok" : "down"}">${o.side || "-"}</td>
+          <td>${fmt(o.price, 6)}</td>
+          <td>${fmt(o.qty, 6)}</td>
+          <td>${fmt(o.fee, 6)}</td>
+          <td>${o.pnl === undefined ? "-" : fmt(o.pnl, 4)}</td>
+        `;
+        tb.appendChild(tr);
+      }
+    }
+
+    function renderOptimizeRows(rows) {
+      const tb = document.getElementById("btOptimizeRows");
+      tb.innerHTML = "";
+      if (!rows || !rows.length) {
+        tb.innerHTML = `<tr><td colspan="7" class="muted">暂无寻优结果</td></tr>`;
+        return;
+      }
+      rows.forEach((r, idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td class="${Number(r.total_return_pct || 0) >= 0 ? "ok" : "down"}">${fmt(r.total_return_pct, 2)}</td>
+          <td>${fmt(r.max_drawdown_pct, 2)}</td>
+          <td>${fmt(r.win_rate, 2)}</td>
+          <td>${r.trades ?? 0}</td>
+          <td>${fmt(r.score, 4)}</td>
+          <td><button onclick="applyOptimizeParams(${idx})">应用</button></td>
+        `;
+        tb.appendChild(tr);
+      });
+    }
+
+    function applyOptimizeParams(index) {
+      const row = lastOptimizeRows[index];
+      if (!row || !row.params) return;
+      document.getElementById("btParams").value = JSON.stringify(row.params, null, 2);
+      document.getElementById("btOptStatus").textContent = `寻优状态: 已应用第 ${index + 1} 名参数`;
+    }
+
+    function renderBacktestResult(r, strategyName) {
+      document.getElementById("btStrategyUsed").textContent = r.strategy_name || strategyName || "-";
+      document.getElementById("btCandles").textContent = r.candles ?? "-";
+      document.getElementById("btTrades").textContent = r.trades ?? "-";
+      document.getElementById("btWinRate").textContent = `${fmt(r.win_rate, 2)}%`;
+      document.getElementById("btPnl").textContent = fmt(r.total_pnl, 4);
+      document.getElementById("btReturn").textContent = `${fmt(r.total_return_pct, 2)}%`;
+      document.getElementById("btDrawdown").textContent = `${fmt(r.max_drawdown_pct, 2)}%`;
+      document.getElementById("btInitEq").textContent = fmt(r.initial_capital, 2);
+      document.getElementById("btFinalEq").textContent = fmt(r.final_equity, 2);
+      const st = r.start_time ? new Date(Number(r.start_time)).toLocaleString() : "-";
+      const et = r.end_time ? new Date(Number(r.end_time)).toLocaleString() : "-";
+      document.getElementById("btRangeInfo").textContent = `${st} ~ ${et}`;
+      const d = r.diagnostics || {};
+      const plr = (d.profit_loss_ratio === null || d.profit_loss_ratio === undefined) ? "-" : fmt(d.profit_loss_ratio, 3);
+      document.getElementById("btAvgTradePnl").textContent = d.avg_trade_pnl === undefined ? "-" : fmt(d.avg_trade_pnl, 4);
+      document.getElementById("btExpectancy").textContent = d.expectancy_usdt === undefined ? "-" : fmt(d.expectancy_usdt, 4);
+      document.getElementById("btProfitLossRatio").textContent = plr;
+      document.getElementById("btTotalFees").textContent = d.total_fees === undefined ? "-" : fmt(d.total_fees, 4);
+      document.getElementById("btFeeRatio").textContent = d.fee_over_notional_pct === undefined ? "-" : `${fmt(d.fee_over_notional_pct, 3)}%`;
+      drawBacktestPrice(r.price_curve || []);
+      lastBacktestPriceCurve = r.price_curve || [];
+      drawEquity(r.equity_curve || []);
+      lastEquityCurve = r.equity_curve || [];
+      renderBacktestOrders(r.orders || []);
+    }
+
+    function buildBacktestRequestFromForm() {
+      const valErrs = validateBacktestParams(true);
+      if (valErrs.length) {
+        throw new Error("参数超出合理范围，请按红框提示修正");
+      }
+      updateEstimatedBacktestLimit();
+      const rangeDays = Number(document.getElementById("btRangeDays").value || 0);
+      const isCustomRange = rangeDays < 0;
+      const rawLimit = Number(document.getElementById("btLimit").value || 1200);
+      const clampedLimit = Math.max(100, Math.min(5000, rawLimit));
+      document.getElementById("btLimit").value = clampedLimit;
+      let startTimeMs = null;
+      let endTimeMs = null;
+      if (isCustomRange) {
+        const startRaw = document.getElementById("btStartTime").value;
+        const endRaw = document.getElementById("btEndTime").value;
+        startTimeMs = startRaw ? new Date(startRaw).getTime() : NaN;
+        endTimeMs = endRaw ? new Date(endRaw).getTime() : NaN;
+        if (!Number.isFinite(startTimeMs) || !Number.isFinite(endTimeMs)) {
+          throw new Error("请填写有效的自定义开始/结束时间");
+        }
+        if (endTimeMs <= startTimeMs) {
+          throw new Error("结束时间必须大于开始时间");
+        }
+      }
+      const p = strategyProfilesById[document.getElementById("btStrategy").value];
+      const strategyName = p ? p.strategy_name : "ema_cross";
+      return {
+        strategyName,
+        req: {
+          symbol: document.getElementById("btSymbol").value,
+          timeframe: document.getElementById("btTimeframe").value,
+          strategy_name: strategyName,
+          strategy_params: JSON.parse(document.getElementById("btParams").value || "{}"),
+          limit: clampedLimit,
+          range_days: isCustomRange ? 0 : rangeDays,
+          start_time_ms: isCustomRange ? Math.floor(startTimeMs) : null,
+          end_time_ms: isCustomRange ? Math.floor(endTimeMs) : null,
+          initial_capital: Number(document.getElementById("btCapital").value || 10000),
+          order_size_usdt: Number(document.getElementById("btOrderSize").value || 100),
+          fee_rate: Number(document.getElementById("btFeeRate").value || 0.001),
+          order_sizing: readBacktestOrderSizingInputs(),
+        },
+      };
+    }
+
+    function setActiveBacktestJobId(jobId) {
+      activeBacktestJobId = jobId || "";
+      if (activeBacktestJobId) localStorage.setItem("bt_active_backtest_job_id", activeBacktestJobId);
+      else localStorage.removeItem("bt_active_backtest_job_id");
+    }
+
+    function setActiveOptimizeJobId(jobId) {
+      activeOptimizeJobId = jobId || "";
+      if (activeOptimizeJobId) localStorage.setItem("bt_active_optimize_job_id", activeOptimizeJobId);
+      else localStorage.removeItem("bt_active_optimize_job_id");
+    }
+
+    async function pollBacktestJob(jobId, strategyName = "") {
+      if (!jobId) return;
+      if (backtestPollTimer) {
+        clearTimeout(backtestPollTimer);
+        backtestPollTimer = null;
+      }
+      try {
+        const res = await api(`/api/backtest/jobs/${encodeURIComponent(jobId)}`);
+        const job = res.job || {};
+        const st = String(job.status || "");
+        if (st === "completed") {
+          const r = job.result || {};
+          renderBacktestResult(r, strategyName || (job.request && job.request.strategy_name) || "");
+          const truncated = !!(r.fetch_meta && r.fetch_meta.truncated_by_limit);
+          const tip = truncated ? "（数据点过多，已按5000根K线截断）" : "";
+          document.getElementById("btStatus").textContent = `回测状态: 完成${tip}`;
+          setActiveBacktestJobId("");
+          return;
+        }
+        if (st === "failed") {
+          document.getElementById("btStatus").textContent = `回测状态: ${job.error || "任务失败"}`;
+          setActiveBacktestJobId("");
+          return;
+        }
+        document.getElementById("btStatus").textContent = "回测状态: 运行中...";
+        backtestPollTimer = setTimeout(() => pollBacktestJob(jobId, strategyName), 1000);
+      } catch (e) {
+        document.getElementById("btStatus").textContent = `回测状态: ${e.message}`;
+        backtestPollTimer = setTimeout(() => pollBacktestJob(jobId, strategyName), 1500);
+      }
+    }
+
+    async function pollOptimizeJob(jobId, strategyName = "") {
+      if (!jobId) return;
+      if (optimizePollTimer) {
+        clearTimeout(optimizePollTimer);
+        optimizePollTimer = null;
+      }
+      try {
+        const res = await api(`/api/backtest/jobs/${encodeURIComponent(jobId)}`);
+        const job = res.job || {};
+        const st = String(job.status || "");
+        if (st === "completed") {
+          const out = job.result || {};
+          const rows = out.top || [];
+          lastOptimizeRows = rows;
+          renderOptimizeRows(rows);
+          if (rows.length) {
+            document.getElementById("btParams").value = JSON.stringify(rows[0].params || {}, null, 2);
+          }
+          const best = out.best_result || null;
+          if (best) {
+            renderBacktestResult(best, strategyName || out.strategy_name || "");
+          }
+          document.getElementById("btOptStatus").textContent = `寻优状态: 完成，已测试 ${out.tested || 0} 组，已回填第1名参数`;
+          setActiveOptimizeJobId("");
+          return;
+        }
+        if (st === "failed") {
+          document.getElementById("btOptStatus").textContent = `寻优状态: ${job.error || "任务失败"}`;
+          setActiveOptimizeJobId("");
+          return;
+        }
+        document.getElementById("btOptStatus").textContent = "寻优状态: 运行中...";
+        optimizePollTimer = setTimeout(() => pollOptimizeJob(jobId, strategyName), 1200);
+      } catch (e) {
+        document.getElementById("btOptStatus").textContent = `寻优状态: ${e.message}`;
+        optimizePollTimer = setTimeout(() => pollOptimizeJob(jobId, strategyName), 1500);
+      }
+    }
+
+    async function runBacktest() {
+      try {
+        const { strategyName, req } = buildBacktestRequestFromForm();
+        document.getElementById("btStatus").textContent = "回测状态: 任务提交中...";
+        const start = await api("/api/backtest/start", "POST", req);
+        const jobId = start.job_id || "";
+        if (!jobId) throw new Error("未获取到回测任务ID");
+        setActiveBacktestJobId(jobId);
+        pollBacktestJob(jobId, strategyName);
+      } catch (e) {
+        document.getElementById("btStatus").textContent = `回测状态: ${e.message}`;
+      }
+    }
+
+    async function optimizeBacktest() {
+      try {
+        const { strategyName, req } = buildBacktestRequestFromForm();
+        const topK = Math.max(3, Math.min(30, Number(document.getElementById("btOptTopK").value || 10)));
+        const maxCandidates = Math.max(10, Math.min(300, Number(document.getElementById("btOptMaxCandidates").value || 120)));
+        req.top_k = topK;
+        req.max_candidates = maxCandidates;
+        document.getElementById("btOptTopK").value = topK;
+        document.getElementById("btOptMaxCandidates").value = maxCandidates;
+        document.getElementById("btOptStatus").textContent = `寻优状态: 任务提交中（最多${maxCandidates}组）...`;
+        const start = await api("/api/backtest/optimize/start", "POST", req);
+        const jobId = start.job_id || "";
+        if (!jobId) throw new Error("未获取到寻优任务ID");
+        setActiveOptimizeJobId(jobId);
+        pollOptimizeJob(jobId, strategyName);
+      } catch (e) {
+        document.getElementById("btOptStatus").textContent = `寻优状态: ${e.message}`;
+      }
+    }
+
+    async function bootstrap() {
+      bindChartInteraction();
+      renderFavorites();
+      drawChart();
+      const savedPage = sessionStorage.getItem("active_main_page") || "market";
+      switchPage(["market", "trade", "backtest"].includes(savedPage) ? savedPage : "market");
+      switchTradeMode("paper");
+      applyOrderSizingInputs(modeOrderSizing.paper);
+      try {
+        const s = await api("/api/settings");
+        switchTradeMode(s.trade_mode || "paper");
+      } catch {}
+      try { await loadStrategyProfiles(); } catch {}
+      try { await loadSymbols(); } catch {}
+      try { await loadKline(); } catch {}
+      try { await loadMarketTicker(); } catch {}
+      try { await refreshState(); } catch {}
+      try {
+        const btStrategy = document.getElementById("btStrategy");
+        btStrategy.innerHTML = document.getElementById("strategyName").innerHTML;
+        btStrategy.value = document.getElementById("strategyName").value;
+        applyBacktestTemplate();
+        syncTradeSettingsToBacktest(false);
+      } catch {}
+      setInterval(refreshState, 3000);
+      setInterval(() => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) loadKline();
+      }, 15000);
+      setInterval(loadMarketTicker, 5000);
+
+      document.getElementById("strategyName").addEventListener("change", applyStrategyTemplate);
+      document.getElementById("strategyName").addEventListener("change", () => syncTradeSettingsToBacktest(false));
+      document.getElementById("strategyParams").addEventListener("input", () => syncTradeSettingsToBacktest(false));
+      document.getElementById("timeframeSelect").addEventListener("change", loadKline);
+      document.getElementById("tradeSymbolSelect").addEventListener("change", () => {});
+      document.getElementById("tradeTimeframeSelect").addEventListener("change", () => {});
+      document.getElementById("btStrategy").addEventListener("change", applyBacktestTemplate);
+      document.getElementById("btRangeDays").addEventListener("change", updateBacktestRangeMode);
+      document.getElementById("btTimeframe").addEventListener("change", updateEstimatedBacktestLimit);
+      document.getElementById("btStartTime").addEventListener("change", updateEstimatedBacktestLimit);
+      document.getElementById("btEndTime").addEventListener("change", updateEstimatedBacktestLimit);
+      document.getElementById("btLimit").addEventListener("input", updateEstimatedBacktestLimit);
+      [
+        "fixedOrderUsdt",
+        "maxOrderUsdt",
+        "riskPerTradePct",
+        "stopLossPct",
+        "tradableBalanceRatio",
+        "maxOpenTrades",
+        "maxSymbolExposureUsdt",
+      ].forEach((id) => {
+        document.getElementById(id).addEventListener("input", () => validateTradeParams(false));
+        document.getElementById(id).addEventListener("change", () => validateTradeParams(false));
+      });
+      document.getElementById("tradableBalanceRatio").addEventListener("input", updateRatioHints);
+      document.getElementById("tradableBalanceRatio").addEventListener("change", updateRatioHints);
+      [
+        "btLimit",
+        "btCapital",
+        "btOrderSize",
+        "btFeeRate",
+        "btFixedOrderUsdt",
+        "btMaxOrderUsdt",
+        "btRiskPerTradePct",
+        "btStopLossPct",
+        "btTradableBalanceRatio",
+        "btMaxOpenTrades",
+        "btMaxSymbolExposureUsdt",
+        "btOptMaxCandidates",
+        "btOptTopK",
+      ].forEach((id) => {
+        document.getElementById(id).addEventListener("input", () => validateBacktestParams(false));
+        document.getElementById(id).addEventListener("change", () => validateBacktestParams(false));
+      });
+      document.getElementById("btTradableBalanceRatio").addEventListener("input", updateRatioHints);
+      document.getElementById("btTradableBalanceRatio").addEventListener("change", updateRatioHints);
+      [
+        "amountMode",
+        "fixedOrderUsdt",
+        "maxOrderUsdt",
+        "riskPerTradePct",
+        "stopLossPct",
+        "tradableBalanceRatio",
+        "maxOpenTrades",
+        "maxSymbolExposureUsdt",
+        "initialEntryOnStart",
+      ].forEach((id) => {
+        document.getElementById(id).addEventListener("change", () => syncTradeSettingsToBacktest(false));
+        document.getElementById(id).addEventListener("input", () => syncTradeSettingsToBacktest(false));
+      });
+      window.addEventListener("resize", drawChart);
+      window.addEventListener("resize", () => drawEquity(lastEquityCurve));
+      window.addEventListener("resize", () => drawBacktestPrice(lastBacktestPriceCurve));
+      window.addEventListener("beforeunload", closeWs);
+      updateBacktestRangeMode();
+      renderOptimizeRows([]);
+      validateTradeParams(false);
+      validateBacktestParams(false);
+      updateRatioHints();
+      const savedBacktestJobId = localStorage.getItem("bt_active_backtest_job_id") || "";
+      const savedOptimizeJobId = localStorage.getItem("bt_active_optimize_job_id") || "";
+      if (savedBacktestJobId) {
+        setActiveBacktestJobId(savedBacktestJobId);
+        pollBacktestJob(savedBacktestJobId);
+      }
+      if (savedOptimizeJobId) {
+        setActiveOptimizeJobId(savedOptimizeJobId);
+        pollOptimizeJob(savedOptimizeJobId);
+      }
+    }
+
+    bootstrap();
+  </script>
+</body>
+</html>
